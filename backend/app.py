@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-# Existing services (DO NOT MODIFY THESE FILES)
-from backend.services.stt_service import transcribe_audio
-from backend.services.soap_service import generate_soap_note
+# ✅ Correct imports (no "backend." here)
+from services.stt_service import transcribe_audio
+from services.soap_service import generate_soap_note
 
 app = Flask(__name__)
 CORS(app)
@@ -18,61 +18,73 @@ def health():
 
 
 # --------------------------------------------------
-# STEP 1 ONLY: Transcription (already working)
+# STEP 1: Transcription
 # --------------------------------------------------
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    if "audio" not in request.files:
-        return jsonify({"error": "Audio file required"}), 400
+    try:
+        if "audio" not in request.files:
+            return jsonify({"error": "Audio file required"}), 400
 
-    audio_file = request.files["audio"]
-    transcript = transcribe_audio(audio_file)
+        audio_file = request.files["audio"]
+        transcript = transcribe_audio(audio_file)
 
-    return jsonify({
-        "transcript": transcript
-    })
+        return jsonify({"transcript": transcript})
+
+    except Exception as e:
+        print("ERROR in /transcribe:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # --------------------------------------------------
-# STEP 2 ONLY: SOAP note from text
+# STEP 2: SOAP note generation
 # --------------------------------------------------
 @app.route("/generate-note", methods=["POST"])
 def generate_note():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    if not data or "transcript" not in data:
-        return jsonify({"error": "Transcript required"}), 400
+        if not data or "transcript" not in data:
+            return jsonify({"error": "Transcript required"}), 400
 
-    soap_note = generate_soap_note(data["transcript"])
-    return jsonify(soap_note)
+        soap_note = generate_soap_note(data["transcript"])
+        return jsonify(soap_note)
+
+    except Exception as e:
+        print("ERROR in /generate-note:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # --------------------------------------------------
-# 🔥 FINAL AUTOMATIC PIPELINE
-# Audio → Transcript → SOAP (ONE CALL)
+# FINAL PIPELINE
+# Audio → Transcript → SOAP
 # --------------------------------------------------
 @app.route("/process-audio", methods=["POST"])
 def process_audio():
-    if "audio" not in request.files:
-        return jsonify({"error": "Audio file required"}), 400
+    try:
+        if "audio" not in request.files:
+            return jsonify({"error": "Audio file required"}), 400
 
-    audio_file = request.files["audio"]
+        audio_file = request.files["audio"]
 
-    # 1. Transcribe
-    transcript = transcribe_audio(audio_file)
+        # Step 1: Transcription
+        transcript = transcribe_audio(audio_file)
 
-    # 2. Generate SOAP note
-    soap_note = generate_soap_note(transcript)
+        # Step 2: SOAP note
+        soap_note = generate_soap_note(transcript)
 
-    # 3. Return full result
-    return jsonify({
-        "transcript": transcript,
-        "soap_note": soap_note
-    })
+        return jsonify({
+            "transcript": transcript,
+            "soap_note": soap_note
+        })
+
+    except Exception as e:
+        print("ERROR in /process-audio:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # --------------------------------------------------
-# App runner (Windows-safe)
+# Run app
 # --------------------------------------------------
 if __name__ == "__main__":
-    app.run(debug=False, use_reloader=False)
+    app.run(debug=True)
